@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+build123d
+google-cloud-aiplatform
+python-dotenv
+google-genai
+openai
+duckduckgo-search
+beautifulsoup4
+requests
+pyvista
+vtk
+chromadb
+sentence-transformers
+playwright
+google-adk
+litellm
