@@ -21,6 +21,22 @@ Common Pitfalls:
 - `Area` is not a class; use `Face` or `Sketch`.
 - If documentation is missing, use your best judgment.
 
+Anti-Patterns (DO NOT DO THIS):
+```python
+# BAD: make_face() without arguments inside BuildSketch often fails
+with BuildSketch(Plane.XY):
+    with BuildLine() as l:
+        ...
+    make_face() # ERROR: Context ambiguous
+
+# GOOD: Explicitly create face from wire
+with BuildSketch(Plane.XY):
+    with BuildLine() as l:
+        ...
+    if l.wires():
+        make_face(l.wires()[0])
+```
+
 **CRITICAL**: 
 - DO NOT return the code as text.
 - CALL `generate_cad(code="...")`.

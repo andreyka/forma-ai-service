@@ -144,7 +144,7 @@ class RAGTool:
         else:
             print("No content to ingest.")
 
-    def _chunk_text(self, text: str, chunk_size: int = 4000, overlap: int = 200) -> List[str]:
+    def _chunk_text(self, text: str, chunk_size: int = 1500, overlap: int = 200) -> List[str]:
         """
         Splits text into chunks with overlap, respecting code blocks and paragraphs.
         """
@@ -191,20 +191,28 @@ class RAGTool:
             
         return chunks
 
-    def query(self, query_text: str, n_results: int = 3) -> str:
+    def query(self, query_text: str, n_results: int = 2) -> str:
         """
         Queries the vector DB for relevant context.
         """
         try:
+            print(f"RAG Tool: Querying for '{query_text}'")
             results = self.collection.query(
                 query_texts=[query_text],
                 n_results=n_results
             )
             
             if not results['documents'] or not results['documents'][0]:
+                print("RAG Tool: No results found.")
                 return "No relevant documentation found."
             
+            print(f"RAG Tool: Found {len(results['documents'][0])} results.")
+            for i, (doc, meta) in enumerate(zip(results['documents'][0], results['metadatas'][0])):
+                print(f"RAG Result {i+1}: Source={meta.get('source', 'unknown')}, ChunkID={meta.get('chunk_id', 'unknown')}")
+                print(f"RAG Content Snippet: {doc[:200]}...")
+
             context = "\n\n".join(results['documents'][0])
             return context
         except Exception as e:
+            print(f"RAG Tool: Query failed with error: {e}")
             return f"RAG Query failed: {e}"

@@ -50,6 +50,7 @@ async def run_agent(prompt: str, session_id: str, user_id: str = "user") -> Asyn
     async for event in runner_spec.run_async(user_id=user_id, session_id=session_id, new_message=spec_input):
         if event.is_final_response() and event.content and event.content.parts:
             spec_output = event.content.parts[0].text
+            print(f"Runner: Specification Agent Output:\n{spec_output}")
             # Yield intermediate progress
             yield f"Specification Generated:\n{spec_output[:100]}...\n"
 
