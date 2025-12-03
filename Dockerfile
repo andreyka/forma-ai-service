@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libglu1-mesa \
     libsm6 \
-    xvfb \
+    libosmesa6-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -25,4 +25,5 @@ COPY . .
 
 EXPOSE 8001
 
+# Run without xvfb-run, as we will use EGL/OSMesa
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]

@@ -2,6 +2,8 @@ import os
 import requests
 from duckduckgo_search import DDGS
 from typing import List, Dict
+from playwright.async_api import async_playwright
+from bs4 import BeautifulSoup
 
 class SearchTools:
     def __init__(self):
@@ -23,6 +25,16 @@ class SearchTools:
             return self._google_search(query, max_results)
         else:
             return self._ddg_search(query, max_results)
+
+    def image_search(self, query: str, max_results: int = 3) -> List[str]:
+        """
+        Image search using Google Custom Search or DuckDuckGo.
+        Returns a list of image URLs.
+        """
+        if self.google_api_key and self.google_cse_id:
+            return self._google_image_search(query, max_results)
+        else:
+            return self._ddg_image_search(query, max_results)
 
     def _google_search(self, query: str, max_results: int) -> str:
         try:
@@ -51,6 +63,31 @@ class SearchTools:
                 self.ddgs = DDGS()
             return self._ddg_search(query, max_results)
 
+    def _google_image_search(self, query: str, max_results: int) -> List[str]:
+        try:
+            url = "https://www.googleapis.com/customsearch/v1"
+            params = {
+                "key": self.google_api_key,
+                "cx": self.google_cse_id,
+                "q": query,
+                "num": max_results,
+                "searchType": "image"
+            }
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            results = data.get("items", [])
+            if not results:
+                return []
+            
+            return [res.get("link") for res in results if res.get("link")]
+        except Exception as e:
+            print(f"Google Image Search failed: {e}. Falling back to DuckDuckGo.")
+            if not self.ddgs:
+                self.ddgs = DDGS()
+            return self._ddg_image_search(query, max_results)
+
     def _ddg_search(self, query: str, max_results: int) -> str:
         try:
             if not self.ddgs:
@@ -66,12 +103,23 @@ class SearchTools:
         except Exception as e:
             return f"Search failed: {e}"
 
+    def _ddg_image_search(self, query: str, max_results: int) -> List[str]:
+        try:
+            if not self.ddgs:
+                 self.ddgs = DDGS()
+            results = self.ddgs.images(query, max_results=max_results)
+            if not results:
+                return []
+            
+            return [res.get("image") for res in results if res.get("image")]
+        except Exception as e:
+            print(f"DuckDuckGo Image Search failed: {e}")
+            return []
+
     async def fetch_page(self, url: str) -> str:
         """
         Fetches the content of a URL and returns the text using Playwright.
         """
-        from playwright.async_api import async_playwright
-        from bs4 import BeautifulSoup
         
         try:
             async with async_playwright() as p:

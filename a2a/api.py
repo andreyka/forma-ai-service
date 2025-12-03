@@ -106,14 +106,14 @@ async def a2a_get_agent_card(request: Request):
     return AgentCard(
         identity={
             "name": "FormaAI 3D Agent",
-            "description": "Generates 3D models (STL/STEP) from natural language descriptions using build123d and Qwen.",
-            "author": "andreyka",
+            "description": "Generates 3D models (STL/STEP) from natural language descriptions using build123d and Gemini 3 Pro.",
+            "author": "FormaAI Team",
             "license": "MIT"
         },
         capabilities={
             "input_types": ["text/plain"],
             "output_types": ["model/stl", "model/step", "text/x-python"],
-            "models": ["Qwen/Qwen3-VL-30B-A3B-Instruct-FP8"]
+            "models": ["gemini-3-pro-preview"]
         },
         supported_interfaces=[
             {

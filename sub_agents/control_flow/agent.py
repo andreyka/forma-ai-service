@@ -1,45 +1,290 @@
-from core.agent import Agent
-from agents.state import AgentState
-from sub_agents.specification.agent import get_specification_agent
-from sub_agents.code_generator.agent import get_code_generator_agent
-# from sub_agents.model_renderer.agent import ModelRendererAgent
+import re
+from typing import AsyncGenerator
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.adk.memory import InMemoryMemoryService
+from google.genai.types import Content, Part
 
-# Adapter to make ADK agents compatible with our custom Agent class
-class AdkAgentAdapter(Agent):
-    def __init__(self, adk_agent):
-        super().__init__()
-        self.adk_agent = adk_agent
+from sub_agents.designer.agent import get_designer_agent
+from sub_agents.coder.agent import get_coder_agent
+from tools.renderer import render_stl
 
-    async def run(self, state: AgentState) -> AgentState:
-        # This is a simplification. Real ADK agents need a different run loop.
-        # But for now, let's assume we just pass the prompt.
-        # This ControlFlowAgent seems to be from an older architecture 
-        # that might not be fully compatible with the current ADK setup.
-        # I will preserve the logic as best as possible.
-        pass
+class ControlFlowAgent:
+    """Orchestrates the multi-agent workflow for 3D model generation.
 
-class ControlFlowAgent(Agent):
-    def __init__(self):
-        super().__init__()
-        # Initialize ADK agents
-        self.spec_agent = get_specification_agent()
-        self.code_agent = get_code_generator_agent()
-        # self.render_agent = ModelRendererAgent()
-        self.max_visual_loops = 2
+    Attributes:
+        app_name (str): The name of the application.
+        session_service: Service for managing user sessions.
+        memory_service: Service for managing agent memory.
+        designer_agent: The initialized Designer Agent.
+        coder_agent: The initialized Coder Agent.
+    """
 
-    async def run(self, state: AgentState) -> AgentState:
-        print("--- Control Flow Agent Started ---")
+    def __init__(self, session_service: InMemorySessionService, memory_service: InMemoryMemoryService):
+        """Initializes the ControlFlowAgent.
+
+        Args:
+            session_service: Service for managing user sessions.
+            memory_service: Service for managing agent memory.
+        """
+        self.app_name = "forma-ai-service"
+        self.session_service = session_service
+        self.memory_service = memory_service
         
-        # NOTE: The ADK agents (spec_agent, code_agent) are LlmAgent instances.
-        # They don't have a simple `run(state)` method compatible with AgentState directly
-        # in the same way the custom Agent class does.
-        # This file seems to rely on a `core.agent.Agent` base class that might be 
-        # different from `google.adk.agents.Agent`.
-        # However, I am just moving the file for now.
+        # Initialize sub-agents
+        self.designer_agent = get_designer_agent()
+        self.coder_agent = get_coder_agent()
+
+    async def _ensure_session(self, session_id: str, user_id: str) -> None:
+        """Ensures a session exists for the user.
+
+        Args:
+            session_id: The unique identifier for the session.
+            user_id: The unique identifier for the user.
+        """
+        print(f"ControlFlow: Ensuring session {session_id} exists for user {user_id}")
+        session = await self.session_service.get_session(app_name=self.app_name, user_id=user_id, session_id=session_id)
+        if not session:
+            print(f"ControlFlow: Session not found. Creating new session...")
+            await self.session_service.create_session(app_name=self.app_name, user_id=user_id, session_id=session_id)
+            print("ControlFlow: Session created.")
+        else:
+            print("ControlFlow: Session found.")
+
+    async def _run_designer_step(self, prompt: str, user_id: str, session_id: str) -> str:
+        """Runs the Designer Agent to generate a specification.
+
+        Args:
+            prompt: The user's initial request.
+            user_id: The unique identifier for the user.
+            session_id: The unique identifier for the session.
+
+        Returns:
+            The generated design specification as a string.
+        """
+        print("--- Running Designer Agent ---")
+        designer_runner = Runner(
+            agent=self.designer_agent,
+            app_name=self.app_name,
+            session_service=self.session_service,
+            memory_service=self.memory_service
+        )
         
-        # 1. Specification
-        # state = await self.spec_agent.run(state) 
-        # ... logic ...
+        designer_input = Content(parts=[Part(text=prompt)], role="user")
+        designer_output = ""
         
-        print("--- Control Flow Agent Finished ---")
-        return state
+        async for event in designer_runner.run_async(user_id=user_id, session_id=session_id, new_message=designer_input):
+            if event.is_final_response() and event.content and event.content.parts:
+                designer_output = event.content.parts[0].text
+                print(f"ControlFlow: Designer Agent Output:\n{designer_output}")
+        
+        return designer_output
+
+    async def _run_coder_step(self, spec: str, user_id: str, session_id: str, result_container: dict[str, str]) -> AsyncGenerator[str, None]:
+        """Runs the Coder Agent to generate code.
+
+        Args:
+            spec: The design specification.
+            user_id: The unique identifier for the user.
+            session_id: The unique identifier for the session.
+            result_container: A dictionary to store the full output string.
+
+        Yields:
+            Chunks of the generated text output.
+        """
+        coder_runner = Runner(
+            agent=self.coder_agent,
+            app_name=self.app_name,
+            session_service=self.session_service,
+            memory_service=self.memory_service
+        )
+        
+        coder_input = Content(parts=[Part(text=f"Specification:\n{spec}")], role="user")
+        coder_output = ""
+        
+        async for event in coder_runner.run_async(user_id=user_id, session_id=session_id, new_message=coder_input):
+            if event.content:
+                 for part in event.content.parts:
+                     if part.function_response:
+                         response_content = part.function_response.response
+                         # Append the tool response to coder_output so regex can find the file path
+                         coder_output += f"\nTool Output: {response_content}"
+            
+            if event.is_final_response() and event.content and event.content.parts:
+                text_parts = [p.text for p in event.content.parts if p.text]
+                if text_parts:
+                    chunk = "\n" + "\n".join(text_parts)
+                    coder_output += chunk
+                    yield "\n".join(text_parts)
+        
+        result_container["output"] = coder_output
+        print(f"ControlFlow: Coder Output Raw: {coder_output}")
+
+    def _extract_or_generate_stl(self, coder_output: str) -> tuple[str | None, str | None]:
+        """Extracts STL path from output or attempts fallback generation.
+
+        Args:
+            coder_output: The full text output from the Coder Agent.
+
+        Returns:
+            A tuple containing (stl_path, error_message).
+            If successful, stl_path is str and error_message is None.
+            If failed, stl_path is None and error_message is str.
+        """
+        # Extract STL path
+        stl_match = re.search(r"outputs/[\w-]+\.stl", coder_output)
+        
+        if stl_match:
+            return stl_match.group(0), None
+            
+        print("ControlFlow: No STL file found in output. Checking for code block...")
+        # Fallback: Check if code was outputted in markdown
+        code_match = re.search(r"```python(.*?)```", coder_output, re.DOTALL)
+        if code_match:
+            print("ControlFlow: Found code block. Executing fallback generation...")
+            code = code_match.group(1).strip()
+            from tools.cad_tools import create_cad_model
+            result = create_cad_model(code)
+            if result["success"]:
+                print(f"ControlFlow: Fallback generation successful. Files: {result['files']}")
+                # We need to find the STL in the new result
+                # The result['files'] is a dict {'step': ..., 'stl': ...}
+                return result['files']['stl'], None
+            else:
+                print(f"ControlFlow: Fallback generation failed: {result['error']}")
+                return None, result['error']
+        
+        return None, "No code block or STL file found."
+
+    async def _get_designer_feedback(self, png_path: str, original_spec: str, user_id: str, session_id: str) -> str:
+        """Requests feedback from the Designer Agent on the rendered image.
+
+        Args:
+            png_path: Path to the rendered PNG image.
+            original_spec: The original design specification.
+            user_id: The unique identifier for the user.
+            session_id: The unique identifier for the session.
+
+        Returns:
+            The feedback text from the Designer Agent.
+        """
+        print("--- Requesting Designer Feedback ---")
+        designer_runner = Runner(
+            agent=self.designer_agent,
+            app_name=self.app_name,
+            session_service=self.session_service,
+            memory_service=self.memory_service
+        )
+        
+        with open(png_path, "rb") as f:
+            image_data = f.read()
+            
+        feedback_prompt = "Here is the rendered image of the generated model. Compare it against the original specification. If it is correct, reply with 'APPROVED' followed by a friendly message to the user describing the model and any nuances (e.g. 'Here is your 3d model...'). If it is incorrect, describe what is wrong so the coder can fix it."
+        
+        feedback_input = Content(parts=[
+            Part(text=feedback_prompt),
+            Part(inline_data={"mime_type": "image/png", "data": image_data})
+        ], role="user")
+        
+        feedback_output = ""
+        async for event in designer_runner.run_async(user_id=user_id, session_id=session_id, new_message=feedback_input):
+            if event.is_final_response() and event.content and event.content.parts:
+                feedback_output = event.content.parts[0].text
+                print(f"ControlFlow: Designer Feedback:\n{feedback_output}")
+        
+        return feedback_output
+
+    async def _execute_loop_iteration(self, current_spec: str, original_spec: str, user_id: str, session_id: str) -> AsyncGenerator[str | tuple[bool, str], None]:
+        """Executes one iteration of the feedback loop.
+
+        Args:
+            current_spec: The current specification to code.
+            original_spec: The original specification for reference.
+            user_id: The unique identifier for the user.
+            session_id: The unique identifier for the session.
+
+        Yields:
+            Chunks of text output, and finally a tuple (is_approved, next_spec).
+        """
+        coder_result = {}
+        async for chunk in self._run_coder_step(current_spec, user_id, session_id, coder_result):
+            yield chunk
+            
+        coder_output = coder_result.get("output", "")
+        
+        # Extract STL or Fallback
+        stl_path, generation_error = self._extract_or_generate_stl(coder_output)
+        
+        if not stl_path:
+            print(f"ControlFlow: Generation failed. Error: {generation_error}")
+            print("ControlFlow: Sending error back to Coder...")
+            next_spec = f"Original Specification:\n{original_spec}\n\nPrevious attempt failed with error:\n{generation_error}\n\nPlease fix the code."
+            yield (False, next_spec)
+            return
+            
+        print(f"ControlFlow: Found STL at {stl_path}")
+        
+        # Render STL
+        png_path = render_stl(stl_path)
+        if not png_path:
+            print("ControlFlow: Failed to render STL.")
+            yield "\nFailed to render STL.\n"
+            yield (False, current_spec) # Retry same spec?
+            return
+            
+        print(f"ControlFlow: Rendered image at {png_path}")
+        yield f"Generated Image: {png_path}\n"
+        
+        # Ask Designer for Feedback
+        feedback_output = await self._get_designer_feedback(png_path, original_spec, user_id, session_id)
+                
+        if "APPROVED" in feedback_output:
+            print("ControlFlow: Design Approved.")
+            friendly_msg = feedback_output.replace("APPROVED", "").strip()
+            if not friendly_msg:
+                    friendly_msg = "Here is your 3D model."
+            yield f"{friendly_msg}\n"
+            yield (True, "")
+        else:
+            print("ControlFlow: Design Rejected. Retrying...")
+            yield f"Designer Feedback: {feedback_output}\n"
+            next_spec = f"Original Specification:\n{original_spec}\n\nFeedback on previous attempt:\n{feedback_output}\n\nPlease fix the code based on this feedback."
+            yield (False, next_spec)
+
+    async def run(self, prompt: str, session_id: str, user_id: str = "user") -> AsyncGenerator[str, None]:
+        """Executes the agent workflow: Designer -> Coder -> Renderer -> Designer (Feedback) -> Coder (Fix).
+
+        Args:
+            prompt: The user's request.
+            session_id: The unique identifier for the session.
+            user_id: The unique identifier for the user.
+
+        Yields:
+            Chunks of text output describing the process and results.
+        """
+        await self._ensure_session(session_id, user_id)
+
+        # Run Designer Agent first to build the initial task / specification. 
+        designer_output = await self._run_designer_step(prompt, user_id, session_id)
+        yield f"Design Specification:\n{designer_output[:100]}...\n"
+
+        # After design specification is generated, run the loops of coder -> renderer -> designer -> coder until approved or max loops reached.
+        max_loops = 3
+        current_spec = designer_output
+        
+        for loop in range(max_loops):
+            print(f"--- Running Coder Agent (Loop {loop+1}) ---")
+            
+            async for chunk in self._execute_loop_iteration(current_spec, designer_output, user_id, session_id):
+                if isinstance(chunk, tuple):
+                    # Final result of the iteration
+                    is_approved, next_spec = chunk
+                    if is_approved:
+                        return
+                    current_spec = next_spec
+                else:
+                    # Streaming output
+                    yield chunk
+        
+        # If loop finishes without approval
+        yield "I'm sorry, I was unable to generate the model correctly after multiple attempts.\n"

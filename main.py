@@ -1,7 +1,15 @@
+import os
+# Suppress tokenizers warning
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+import logging
+# Suppress Gemini warnings
+logging.getLogger("tornado.access").setLevel(logging.ERROR)
+logging.getLogger("google.generativeai").setLevel(logging.ERROR)
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-import os
 
 from contextlib import asynccontextmanager
 from tools.rag_tool import RAGTool
