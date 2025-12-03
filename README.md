@@ -70,28 +70,42 @@ graph TD
 
 ### Installation
 
-1.  Clone the repository.
-2.  Set your API keys in `docker-compose.yml` or `.env`:
-    ```yaml
-    environment:
-      - GOOGLE_API_KEY=your_key_here
-    ```
-3.  Build and run the services:
+To run the service standalone using Docker:
+
+1.  **Build the image:**
     ```bash
-    docker-compose up --build
+    docker build -t forma-ai-service .
     ```
 
-### Usage
+2.  **Run the container:**
+    You need to provide your Google API Key.
+    ```bash
+    docker run -p 8001:8001 \
+      -e GOOGLE_API_KEY=your_key_here \
+      -e GEMINI_API_KEY=your_key_here \
+      forma-ai-service
+    ```
 
-Once running, the service exposes an API (and a frontend if configured) to accept prompts.
+### API Usage
 
-**Example Prompt:**
-> "Design a mounting bracket for a NEMA 17 stepper motor with 4 mounting holes and a central shaft opening."
+The service implements an asynchronous "Agent-to-Agent" (A2A) protocol.
 
-The agent will:
-1.  Research NEMA 17 dimensions.
-2.  Draft a spec.
-3.  Write the code.
-4.  Render the result.
-5.  Verify it looks like a bracket.
-6.  Return the final files.
+### API Usage
+
+The service implements an asynchronous "Agent-to-Agent" (A2A) protocol.
+
+We provide a ready-to-use Python client in the `example/` directory.
+
+**Running the Example:**
+
+1.  Ensure the service is running (see Installation).
+2.  Install `requests`:
+    ```bash
+    pip install requests
+    ```
+3.  Run the client script:
+    ```bash
+    python example/client.py "Design a 10x10x10 cm cube with a 5mm hole in the center."
+    ```
+
+The script will submit the prompt, poll for completion, and print the download URLs for the generated files.
