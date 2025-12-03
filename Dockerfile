@@ -4,8 +4,6 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies for CadQuery/OCCT
-# libgl1-mesa-glx is needed for OCP/CadQuery even in headless mode often
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglx-mesa0 \
@@ -25,5 +23,4 @@ COPY . .
 
 EXPOSE 8001
 
-# Run without xvfb-run, as we will use EGL/OSMesa
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
