@@ -86,13 +86,10 @@ To run the service standalone using Docker:
       forma-ai-service
     ```
 
-### API Usage
-
-The service implements an asynchronous "Agent-to-Agent" (A2A) protocol.
 
 ### API Usage
 
-The service implements an asynchronous "Agent-to-Agent" (A2A) protocol.
+The service implements an asynchronous "Agent-to-Agent" (A2A) protocol. It follows the specification at [https://a2a-protocol.org/latest/specification/](https://a2a-protocol.org/latest/specification/), using JSON as the data format.
 
 We provide a ready-to-use Python client in the `example/` directory.
 
@@ -109,3 +106,4 @@ We provide a ready-to-use Python client in the `example/` directory.
     ```
 
 The script will submit the prompt, poll for completion, and print the download URLs for the generated files.
+

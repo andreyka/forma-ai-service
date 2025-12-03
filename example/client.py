@@ -10,7 +10,7 @@ def generate_model(prompt):
     session_id = str(uuid.uuid4())
     payload = {
         "message": {
-            "role": "user",
+            "role": "ROLE_USER",
             "parts": [{"text": prompt}],
             "context_id": session_id
         }
@@ -33,25 +33,25 @@ def generate_model(prompt):
         status_resp = requests.get(f"{BASE_URL}/v1/tasks/{task_id}")
         status_resp.raise_for_status()
         task_data = status_resp.json()["task"]
-        state = task_data["state"]
+        state = task_data["status"]["state"]
         
         print(f"Status: {state}")
         
-        if state == "COMPLETED":
-            result_msg = task_data["result"]
+        if state == "TASK_STATE_COMPLETED":
+            result_msg = task_data["status"]["message"]
             print("\nGeneration Complete!")
             
             # Extract file links
             for part in result_msg["parts"]:
-                if "file" in part:
+                if part.get("file"):
                     file_info = part["file"]
                     print(f"File: {file_info['name']}")
-                    print(f"Download URL: {BASE_URL}{file_info['file_with_uri']}")
+                    print(f"Download URL: {BASE_URL}{file_info.get('fileWithUri', file_info.get('file_with_uri'))}")
             break
             
-        elif state == "FAILED":
+        elif state == "TASK_STATE_FAILED":
             print("Generation Failed.")
-            print(task_data.get("result", {}))
+            print(task_data["status"].get("message", {}))
             break
             
         time.sleep(2)
