@@ -1,12 +1,10 @@
-# Forma AI
+# Forma AI Agent Service
 
 ![Forma AI Logo](assets/logo.png)
 
-Forma AI is an advanced agentic service designed to generate parametric 3D CAD models from natural language descriptions. It leverages a multi-agent architecture to design, code, render, and iteratively refine 3D models using the `build123d` Python library.
+Forma AI is an AI agent which generates parametric 3D CAD models from natural language descriptions. 
 
-## How It Works
-
-Forma AI operates as a coordinated system of specialized AI agents, orchestrated to mimic a real-world engineering workflow.
+It is designed as multi-agent AI system which API is based on a JSON format of the [A2A](https://a2a-protocol.org/latest/specification/) protocol.
 
 ### Architecture
 
