@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Forma AI is an AI agent which generates parametric 3D CAD models from natural language descriptions. 
+Forma AI is an AI agent which generates **Parametric 3D CAD models** (STEP/STL) from natural language descriptions. It is aiming to produces precise, engineering-grade geometry suitable for manufacturing and 3D printing. 
 
 ### Architecture
 
