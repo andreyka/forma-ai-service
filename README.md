@@ -58,6 +58,10 @@ graph TD
 *   **Parametric Code**: The output is not just a mesh, but Python code that can be modified and parameterized.
 *   **Standard Formats**: Exports to STEP (for CAD software) and STL (for 3D printing).
 
+## Limitations
+
+*   **Stateless Execution**: Each task is fully independent. The agent does not retain context from previous requests. You cannot ask the agent to "modify the previous model" or "make the hole bigger"; you must provide the full specification for the modified model in a new request.
+
 ## Getting Started
 
 ### Prerequisites
