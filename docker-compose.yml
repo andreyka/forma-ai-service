@@ -1,0 +1,27 @@
+services:
+  forma-ai-frontend:
+    build:
+      context: https://github.com/andreyka/forma-ai-frontend.git#main
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8001
+    depends_on:
+      - forma-ai-service
+
+  forma-ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - OUTPUT_DIR=${OUTPUT_DIR:-outputs}
+      - RAG_PERSIST_DIRECTORY=${RAG_PERSIST_DIRECTORY:-rag_db/development}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

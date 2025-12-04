@@ -71,20 +71,34 @@ graph TD
 
 ### Installation
 
-To run the service standalone using Docker:
+The recommended way to run the service is using Docker Compose. This will start both the backend service and the frontend UI.
 
-1.  **Build the image:**
+1.  **Clone the repository:**
     ```bash
-    docker build -t forma-ai-service .
+    git clone https://github.com/andreyka/forma-ai-service.git
+    cd forma-ai-service
     ```
 
-2.  **Run the container:**
-    You need to provide your Google API Key.
+2.  **Configure Environment Variables:**
+    Copy the example environment file and add your API keys.
     ```bash
-    docker run -p 8001:8001 \
-      -e GOOGLE_API_KEY=your_key_here \
-      forma-ai-service
+    cp .env.example .env
     ```
+    Edit `.env` and set your `GOOGLE_API_KEY`.
+
+3.  **Start the Application:**
+    ```bash
+    docker compose up --build
+    ```
+
+### User Interface
+
+The application includes a web-based user interface for interacting with the agent.
+
+*   **URL**: `http://localhost:3000`
+*   **Source**: The frontend code is fetched automatically from [https://github.com/andreyka/forma-ai-frontend](https://github.com/andreyka/forma-ai-frontend).
+
+The UI allows you to enter natural language prompts, view the conversation history, and download the generated 3D models.
 
 
 ### API Usage
