@@ -1,3 +1,8 @@
+"""Example client for the FormaAI API.
+
+This script demonstrates how to send a prompt to the API and poll for the result.
+"""
+
 import requests
 import time
 import uuid
@@ -5,7 +10,12 @@ import sys
 
 BASE_URL = "http://localhost:8001"
 
-def generate_model(prompt):
+def generate_model(prompt: str) -> None:
+    """Send a generation request and poll for completion.
+
+    Args:
+        prompt (str): The description of the model to generate.
+    """
     # 1. Send the request
     session_id = str(uuid.uuid4())
     payload = {

@@ -1,3 +1,9 @@
+"""System prompt for the Coder Agent.
+
+This module contains the system instructions for the Coder Agent,
+defining its role, capabilities, and rules for generating build123d code.
+"""
+
 import textwrap
 
 SYSTEM_PROMPT = textwrap.dedent("""

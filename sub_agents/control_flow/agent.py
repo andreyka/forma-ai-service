@@ -1,3 +1,9 @@
+"""Control Flow Agent module.
+
+This module defines the ControlFlowAgent, which orchestrates the interaction
+between the Designer and Coder agents to generate 3D models.
+"""
+
 import re
 from typing import AsyncGenerator
 from google.adk.runners import Runner
@@ -24,8 +30,8 @@ class ControlFlowAgent:
         """Initializes the ControlFlowAgent.
 
         Args:
-            session_service: Service for managing user sessions.
-            memory_service: Service for managing agent memory.
+            session_service (InMemorySessionService): Service for managing user sessions.
+            memory_service (InMemoryMemoryService): Service for managing agent memory.
         """
         self.app_name = "forma-ai-service"
         self.session_service = session_service
@@ -39,8 +45,8 @@ class ControlFlowAgent:
         """Ensures a session exists for the user.
 
         Args:
-            session_id: The unique identifier for the session.
-            user_id: The unique identifier for the user.
+            session_id (str): The unique identifier for the session.
+            user_id (str): The unique identifier for the user.
         """
         print(f"ControlFlow: Ensuring session {session_id} exists for user {user_id}")
         session = await self.session_service.get_session(app_name=self.app_name, user_id=user_id, session_id=session_id)
@@ -55,12 +61,12 @@ class ControlFlowAgent:
         """Runs the Designer Agent to generate a specification.
 
         Args:
-            prompt: The user's initial request.
-            user_id: The unique identifier for the user.
-            session_id: The unique identifier for the session.
+            prompt (str): The user's initial request.
+            user_id (str): The unique identifier for the user.
+            session_id (str): The unique identifier for the session.
 
         Returns:
-            The generated design specification as a string.
+            str: The generated design specification as a string.
         """
         print("--- Running Designer Agent ---")
         designer_runner = Runner(
@@ -84,13 +90,13 @@ class ControlFlowAgent:
         """Runs the Coder Agent to generate code.
 
         Args:
-            spec: The design specification.
-            user_id: The unique identifier for the user.
-            session_id: The unique identifier for the session.
-            result_container: A dictionary to store the full output string.
+            spec (str): The design specification.
+            user_id (str): The unique identifier for the user.
+            session_id (str): The unique identifier for the session.
+            result_container (dict[str, str]): A dictionary to store the full output string.
 
         Yields:
-            Chunks of the generated text output.
+            str: Chunks of the generated text output.
         """
         coder_runner = Runner(
             agent=self.coder_agent,
@@ -124,12 +130,12 @@ class ControlFlowAgent:
         """Extracts STL path from output or attempts fallback generation.
 
         Args:
-            coder_output: The full text output from the Coder Agent.
+            coder_output (str): The full text output from the Coder Agent.
 
         Returns:
-            A tuple containing (stl_path, error_message).
-            If successful, stl_path is str and error_message is None.
-            If failed, stl_path is None and error_message is str.
+            tuple[str | None, str | None]: A tuple containing (stl_path, error_message).
+                If successful, stl_path is str and error_message is None.
+                If failed, stl_path is None and error_message is str.
         """
         # Extract STL path
         stl_match = re.search(r"outputs/[\w-]+\.stl", coder_output)
@@ -160,13 +166,13 @@ class ControlFlowAgent:
         """Requests feedback from the Designer Agent on the rendered image.
 
         Args:
-            png_path: Path to the rendered PNG image.
-            original_spec: The original design specification.
-            user_id: The unique identifier for the user.
-            session_id: The unique identifier for the session.
+            png_path (str): Path to the rendered PNG image.
+            original_spec (str): The original design specification.
+            user_id (str): The unique identifier for the user.
+            session_id (str): The unique identifier for the session.
 
         Returns:
-            The feedback text from the Designer Agent.
+            str: The feedback text from the Designer Agent.
         """
         print("--- Requesting Designer Feedback ---")
         designer_runner = Runner(
@@ -198,13 +204,13 @@ class ControlFlowAgent:
         """Executes one iteration of the feedback loop.
 
         Args:
-            current_spec: The current specification to code.
-            original_spec: The original specification for reference.
-            user_id: The unique identifier for the user.
-            session_id: The unique identifier for the session.
+            current_spec (str): The current specification to code.
+            original_spec (str): The original specification for reference.
+            user_id (str): The unique identifier for the user.
+            session_id (str): The unique identifier for the session.
 
         Yields:
-            Chunks of text output, and finally a tuple (is_approved, next_spec).
+            Union[str, tuple[bool, str]]: Chunks of text output, and finally a tuple (is_approved, next_spec).
         """
         coder_result = {}
         async for chunk in self._run_coder_step(current_spec, user_id, session_id, coder_result):
@@ -255,12 +261,12 @@ class ControlFlowAgent:
         """Executes the agent workflow: Designer -> Coder -> Renderer -> Designer (Feedback) -> Coder (Fix).
 
         Args:
-            prompt: The user's request.
-            session_id: The unique identifier for the session.
-            user_id: The unique identifier for the user.
+            prompt (str): The user's request.
+            session_id (str): The unique identifier for the session.
+            user_id (str): The unique identifier for the user.
 
         Yields:
-            Chunks of text output describing the process and results.
+            str: Chunks of text output describing the process and results.
         """
         await self._ensure_session(session_id, user_id)
 

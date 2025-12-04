@@ -1,3 +1,9 @@
+"""System prompt for the Designer Agent.
+
+This module contains the system instructions for the Designer Agent,
+defining its role, capabilities, and guidelines for creating technical specifications.
+"""
+
 SYSTEM_PROMPT = """You are an expert technical writer for 3D modeling. 
 Your goal is to convert a user request into a detailed technical specification for a Python programmer using build123d.
 

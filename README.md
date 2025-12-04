@@ -4,11 +4,9 @@
 
 Forma AI is an AI agent which generates parametric 3D CAD models from natural language descriptions. 
 
-It is designed as multi-agent AI system which API is based on a JSON format of the [A2A](https://a2a-protocol.org/latest/specification/) protocol.
-
 ### Architecture
 
-The system is built on a **Control Flow** architecture that manages the lifecycle of a task from initial prompt to final approved model.
+Forma AI is a multi-agent AI system (service). It implements built  a **Control Flow** architecture that manages the lifecycle of a task from initial prompt to final approved model.
 
 ```mermaid
 graph TD
@@ -63,8 +61,7 @@ graph TD
 ### Prerequisites
 
 *   Docker
-*   Docker Compose
-*   Google Cloud API Key (for Gemini models)
+*   Google Cloud API Key (for Gemini models and Google Custom Search)
 
 ### Installation
 
@@ -80,7 +77,6 @@ To run the service standalone using Docker:
     ```bash
     docker run -p 8001:8001 \
       -e GOOGLE_API_KEY=your_key_here \
-      -e GEMINI_API_KEY=your_key_here \
       forma-ai-service
     ```
 
@@ -89,7 +85,7 @@ To run the service standalone using Docker:
 
 The service implements an asynchronous "Agent-to-Agent" (A2A) protocol. It follows the specification at [https://a2a-protocol.org/latest/specification/](https://a2a-protocol.org/latest/specification/), using JSON as the data format.
 
-We provide a ready-to-use Python client in the `example/` directory.
+A reference client implementation is provided in the `example/` directory.
 
 **Running the Example:**
 

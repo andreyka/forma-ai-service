@@ -1,3 +1,9 @@
+"""Data models for the Agent-to-Agent (A2A) protocol.
+
+This module defines Pydantic models for tasks, messages, parts,
+and agent capabilities used in the A2A communication.
+"""
+
 from enum import Enum
 from typing import List, Optional, Union, Dict, Any
 from pydantic import BaseModel, Field, ConfigDict
@@ -49,6 +55,18 @@ class Part(A2ABaseModel):
 
 # Message
 class Message(A2ABaseModel):
+    """Represents a message in the A2A protocol.
+
+    Attributes:
+        message_id (Optional[str]): Unique identifier for the message.
+        context_id (Optional[str]): Context or session ID.
+        task_id (Optional[str]): ID of the task this message belongs to.
+        role (Role): The role of the message sender (USER or AGENT).
+        parts (List[Part]): The content parts of the message.
+        metadata (Optional[Dict[str, Any]]): Additional metadata.
+        extensions (Optional[str]): Protocol extensions.
+        reference_task_ids (Optional[str]): Related task IDs.
+    """
     message_id: Optional[str] = None
     context_id: Optional[str] = None
     task_id: Optional[str] = None
@@ -69,6 +87,16 @@ class Artifact(A2ABaseModel):
     parts: List[Part] = Field(default_factory=list)
 
 class Task(A2ABaseModel):
+    """Represents a task in the A2A system.
+
+    Attributes:
+        id (str): Unique task identifier.
+        context_id (Optional[str]): Context or session ID.
+        status (TaskStatus): Current status of the task.
+        artifacts (Optional[Artifact]): Artifacts produced by the task.
+        history (List[Message]): Message history associated with the task.
+        metadata (Optional[Dict[str, Any]]): Additional metadata.
+    """
     id: str
     context_id: Optional[str] = None
     status: TaskStatus
@@ -86,6 +114,15 @@ class SendMessageRequest(A2ABaseModel):
 
 # Agent Card
 class AgentCard(A2ABaseModel):
+    """Describes the agent's identity and capabilities.
+
+    Attributes:
+        type (str): The type of the card (default: "agent-card").
+        version (str): The version of the card schema.
+        identity (Dict[str, Any]): Identity information (name, description, etc.).
+        capabilities (Dict[str, Any]): Capabilities (input/output types, models).
+        supported_interfaces (List[Dict[str, str]]): Supported communication interfaces.
+    """
     type: str = "agent-card"
     version: str = "1.0"
     identity: Dict[str, Any]

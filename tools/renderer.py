@@ -1,11 +1,21 @@
+"""Renderer utility for STL files.
+
+This module provides a function to render STL files to PNG images using PyVista.
+"""
+
 import os
 import pyvista as pv
 from typing import Optional
 
 def render_stl(stl_path: str, output_path: Optional[str] = None) -> Optional[str]:
-    """
-    Renders an STL file to a PNG image using PyVista.
-    Returns the path to the generated image.
+    """Renders an STL file to a PNG image using PyVista.
+
+    Args:
+        stl_path (str): Path to the STL file.
+        output_path (Optional[str]): Path to save the image. If None, uses STL path with .png extension.
+
+    Returns:
+        Optional[str]: The path to the generated image, or None if failed.
     """
     if not os.path.exists(stl_path):
         print(f"Error: STL file not found at {stl_path}")

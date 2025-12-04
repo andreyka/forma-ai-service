@@ -1,4 +1,11 @@
+"""API endpoints for the Agent-to-Agent (A2A) protocol.
+
+This module defines the FastAPI router for handling A2A messages,
+task management, and agent capabilities discovery.
+"""
+
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from typing import Dict
 from a2a.models import (
     SendMessageRequest, Task, TaskStatus, TaskState, Message, Role, Part, FilePart, AgentCard
 )
@@ -9,7 +16,14 @@ import os
 router = APIRouter()
 task_manager = TaskManager()
 
-async def process_a2a_task(task_id: str, prompt: str, context_id: str):
+async def process_a2a_task(task_id: str, prompt: str, context_id: str) -> None:
+    """Process an A2A task in the background.
+
+    Args:
+        task_id (str): The unique identifier for the task.
+        prompt (str): The input prompt from the user/agent.
+        context_id (str): The context or session ID.
+    """
     print(f"Processing A2A task {task_id} with prompt: {prompt}")
     task_manager.update_task_status(task_id, TaskState.WORKING)
     
@@ -75,7 +89,19 @@ async def process_a2a_task(task_id: str, prompt: str, context_id: str):
         task_id_var.reset(token)
 
 @router.post("/v1/message:send")
-async def a2a_send_message(request: SendMessageRequest, background_tasks: BackgroundTasks):
+async def a2a_send_message(request: SendMessageRequest, background_tasks: BackgroundTasks) -> Dict[str, Task]:
+    """Handle incoming A2A messages and start a background task.
+
+    Args:
+        request (SendMessageRequest): The incoming message request.
+        background_tasks (BackgroundTasks): FastAPI background tasks handler.
+
+    Returns:
+        Dict[str, Task]: A dictionary containing the created task.
+
+    Raises:
+        HTTPException: If the message content is empty.
+    """
     # Extract prompt from the first text part
     prompt = ""
     for part in request.message.parts:
@@ -94,14 +120,33 @@ async def a2a_send_message(request: SendMessageRequest, background_tasks: Backgr
     return {"task": task}
 
 @router.get("/v1/tasks/{id}")
-async def a2a_get_task(id: str):
+async def a2a_get_task(id: str) -> Dict[str, Task]:
+    """Retrieve the status of a specific task.
+
+    Args:
+        id (str): The task identifier.
+
+    Returns:
+        Dict[str, Task]: A dictionary containing the task details.
+
+    Raises:
+        HTTPException: If the task is not found.
+    """
     task = task_manager.get_task(id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     return {"task": task}
 
 @router.get("/v1/extendedAgentCard")
-async def a2a_get_agent_card(request: Request):
+async def a2a_get_agent_card(request: Request) -> AgentCard:
+    """Provide the extended agent card describing capabilities.
+
+    Args:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        AgentCard: The agent card object.
+    """
     base_url = str(request.base_url).rstrip("/")
     return AgentCard(
         identity={
@@ -124,5 +169,13 @@ async def a2a_get_agent_card(request: Request):
     )
 
 @router.get("/.well-known/agent-card.json")
-async def a2a_well_known_card(request: Request):
+async def a2a_well_known_card(request: Request) -> AgentCard:
+    """Serve the well-known agent card for discovery.
+
+    Args:
+        request (Request): The incoming HTTP request.
+
+    Returns:
+        AgentCard: The agent card object.
+    """
     return await a2a_get_agent_card(request)

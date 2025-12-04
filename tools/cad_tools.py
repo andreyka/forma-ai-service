@@ -1,3 +1,9 @@
+"""CAD tools for generating and rendering 3D models.
+
+This module provides functions to execute build123d scripts in a sandboxed process
+and render the resulting STL files to images.
+"""
+
 import os
 import uuid
 import logging
@@ -18,9 +24,16 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 import multiprocessing
 import traceback
 
-def _execute_and_export(script_code, output_dir, base_name):
-    """
-    Helper function to execute code and export files in a separate process.
+def _execute_and_export(script_code: str, output_dir: str, base_name: str) -> dict:
+    """Execute code and export files in a separate process.
+
+    Args:
+        script_code (str): The Python script to execute.
+        output_dir (str): Directory to save output files.
+        base_name (str): Base name for output files.
+
+    Returns:
+        dict: Result dictionary with success status and file paths.
     """
     try:
         # Re-import build123d in the subprocess to ensure clean state
@@ -63,10 +76,15 @@ def _execute_and_export(script_code, output_dir, base_name):
         }
 
 def create_cad_model(script_code: str) -> dict:
-    """
-    Executes build123d code and exports STEP/STL.
-    Returns dict with 'success', 'error', 'files' (dict of paths).
+    """Executes build123d code and exports STEP/STL.
+
     Runs in a separate process with a timeout.
+
+    Args:
+        script_code (str): The build123d script to execute.
+
+    Returns:
+        dict: A dictionary containing 'success', 'error', and 'files' (dict of paths).
     """
     # Use task ID if available, otherwise UUID
     task_id = task_id_var.get()
@@ -93,9 +111,16 @@ def create_cad_model(script_code: str) -> dict:
                 "error": f"Process error: {str(e)}"
             }
 
-def _render_worker(stl_path, output_dir, base_name):
-    """
-    Worker function to render the STL in a separate process.
+def _render_worker(stl_path: str, output_dir: str, base_name: str) -> dict:
+    """Render the STL in a separate process.
+
+    Args:
+        stl_path (str): Path to the STL file.
+        output_dir (str): Directory to save images.
+        base_name (str): Base name for output images.
+
+    Returns:
+        dict: Result dictionary with success status and image paths.
     """
     import pyvista as pv
     
@@ -138,10 +163,15 @@ def _render_worker(stl_path, output_dir, base_name):
         return {"success": False, "error": f"Rendering failed: {str(e)}\n{traceback.format_exc()}"}
 
 def render_cad_model(stl_path: str) -> dict:
-    """
-    Renders an STL file to PNG screenshots (Iso, Top, Front, Right).
-    Returns dict with 'success', 'error', 'images' (list of paths).
+    """Renders an STL file to PNG screenshots (Iso, Top, Front, Right).
+
     Runs in a separate process to ensure VTK/OpenGL isolation.
+
+    Args:
+        stl_path (str): Path to the STL file.
+
+    Returns:
+        dict: A dictionary containing 'success', 'error', and 'images' (list of paths).
     """
     if not os.path.exists(stl_path):
         return {"success": False, "error": "STL file not found."}

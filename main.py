@@ -1,3 +1,9 @@
+"""Main entry point for the FormaAI API service.
+
+This module initializes the FastAPI application, configures middleware,
+serves static files, and includes the A2A router.
+"""
+
 import os
 # Suppress tokenizers warning
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -16,6 +22,11 @@ from tools.rag_tool import RAGTool
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """Manage the application lifespan.
+
+    Args:
+        app (FastAPI): The FastAPI application instance.
+    """
     # Startup: Ingest docs if needed
     print("Startup: Checking RAG database...")
     rag = RAGTool()

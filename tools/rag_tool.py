@@ -1,3 +1,9 @@
+"""RAG (Retrieval-Augmented Generation) tool for documentation.
+
+This module provides the RAGTool class to ingest documentation from URLs,
+store it in a vector database, and query it for relevant context.
+"""
+
 import os
 import asyncio
 from bs4 import BeautifulSoup
@@ -6,7 +12,13 @@ from chromadb.utils import embedding_functions
 from playwright.async_api import async_playwright, BrowserContext
 
 class RAGTool:
+    """Manages documentation ingestion and retrieval."""
     def __init__(self, persist_directory: str = "rag_db"):
+        """Initialize RAGTool.
+
+        Args:
+            persist_directory (str): Directory to persist the vector database.
+        """
         self.persist_directory = persist_directory
         self.client = chromadb.PersistentClient(path=persist_directory)
         

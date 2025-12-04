@@ -1,0 +1,1 @@
+"""Coder sub-agent package."""

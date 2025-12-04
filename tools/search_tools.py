@@ -1,3 +1,9 @@
+"""Search tools for web and image search.
+
+This module provides the SearchTools class which interfaces with Google Custom Search
+and DuckDuckGo to perform web and image searches, and fetch web page content.
+"""
+
 import os
 import requests
 from duckduckgo_search import DDGS
@@ -6,7 +12,9 @@ from playwright.async_api import async_playwright
 from bs4 import BeautifulSoup
 
 class SearchTools:
+    """Provides web search, image search, and page fetching capabilities."""
     def __init__(self):
+        """Initialize SearchTools with API keys."""
         self.google_api_key = os.getenv("GOOGLE_API_KEY")
         self.google_cse_id = os.getenv("GOOGLE_CSE_ID")
         self.ddgs = None
@@ -18,8 +26,14 @@ class SearchTools:
             print("Google Custom Search enabled.")
 
     def web_search(self, query: str, max_results: int = 5) -> str:
-        """
-        General web search using Google Custom Search or DuckDuckGo.
+        """General web search using Google Custom Search or DuckDuckGo.
+
+        Args:
+            query (str): The search query.
+            max_results (int): Maximum number of results to return.
+
+        Returns:
+            str: Formatted search results.
         """
         if self.google_api_key and self.google_cse_id:
             return self._google_search(query, max_results)
@@ -27,9 +41,14 @@ class SearchTools:
             return self._ddg_search(query, max_results)
 
     def image_search(self, query: str, max_results: int = 3) -> List[str]:
-        """
-        Image search using Google Custom Search or DuckDuckGo.
-        Returns a list of image URLs.
+        """Image search using Google Custom Search or DuckDuckGo.
+
+        Args:
+            query (str): The search query.
+            max_results (int): Maximum number of results to return.
+
+        Returns:
+            List[str]: A list of image URLs.
         """
         if self.google_api_key and self.google_cse_id:
             return self._google_image_search(query, max_results)
@@ -117,8 +136,13 @@ class SearchTools:
             return []
 
     async def fetch_page(self, url: str) -> str:
-        """
-        Fetches the content of a URL and returns the text using Playwright.
+        """Fetches the content of a URL and returns the text using Playwright.
+
+        Args:
+            url (str): The URL to fetch.
+
+        Returns:
+            str: The text content of the page.
         """
         
         try:
