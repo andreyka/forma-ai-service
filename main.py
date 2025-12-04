@@ -19,6 +19,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
 from tools.rag_tool import RAGTool
+from a2a.api import router as a2a_router
+from config import settings
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,7 +37,7 @@ async def lifespan(app: FastAPI):
         app (FastAPI): The FastAPI application instance.
     """
     # Startup: Ingest docs if needed
-    print("Startup: Checking RAG database...")
+    logger.info("Startup: Checking RAG database...")
     rag = RAGTool()
     await rag.ingest_docs()
     yield

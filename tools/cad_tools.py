@@ -18,7 +18,9 @@ import contextvars
 # Context variable to track the current task ID
 task_id_var = contextvars.ContextVar("task_id", default=None)
 
-OUTPUT_DIR = "outputs"
+from config import settings
+
+OUTPUT_DIR = settings.OUTPUT_DIR
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 import multiprocessing
@@ -37,11 +39,14 @@ def _execute_and_export(script_code: str, output_dir: str, base_name: str) -> di
     """
     try:
         # Re-import build123d in the subprocess to ensure clean state
-        from build123d import BuildPart, BuildSketch, BuildLine, Box, Cylinder, Sphere, Cone, Torus, Wedge, Text, \
-                              Plane, Locations, Align, Mode, Axis, Vector, Color, export_step, export_stl, \
-                              Rectangle, Circle, Ellipse, Triangle, Polygon, RegularPolygon, Trapezoid, \
-                              Line, Polyline, Spline, CenterArc, ThreePointArc, TangentArc, JernArc, \
-                              make_face, add, fillet, chamfer, offset, mirror, extrude, revolve, sweep, loft
+        # Re-import build123d in the subprocess to ensure clean state
+        from build123d import (
+            BuildPart, BuildSketch, BuildLine, Box, Cylinder, Sphere, Cone, Torus, Wedge, Text,
+            Plane, Locations, Align, Mode, Axis, Vector, Color, export_step, export_stl,
+            Rectangle, Circle, Ellipse, Triangle, Polygon, RegularPolygon, Trapezoid,
+            Line, Polyline, Spline, CenterArc, ThreePointArc, TangentArc, JernArc,
+            make_face, add, fillet, chamfer, offset, mirror, extrude, revolve, sweep, loft
+        )
         
         local_scope = {}
         # Execute the script

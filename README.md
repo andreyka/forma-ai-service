@@ -108,5 +108,4 @@ This project uses the following open-source libraries:
 *   **build123d**: [Apache License 2.0](licenses/BUILD123D_LICENSE)
 *   **PyVista**: [MIT License](licenses/PYVISTA_LICENSE)
 *   **Google Generative AI**: [Apache License 2.0](licenses/GOOGLE_GENAI_LICENSE)
-
-
+*   **Playwright**: [Apache License 2.0](licenses/PLAYWRIGHT_LICENSE)

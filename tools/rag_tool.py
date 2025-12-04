@@ -6,10 +6,14 @@ store it in a vector database, and query it for relevant context.
 
 import os
 import asyncio
+import logging
 from bs4 import BeautifulSoup
 import chromadb
 from chromadb.utils import embedding_functions
 from playwright.async_api import async_playwright, BrowserContext
+from config import settings
+
+logger = logging.getLogger(__name__)
 
 class RAGTool:
     """Manages documentation ingestion and retrieval."""
@@ -19,11 +23,11 @@ class RAGTool:
         Args:
             persist_directory (str): Directory to persist the vector database.
         """
-        self.persist_directory = persist_directory
-        self.client = chromadb.PersistentClient(path=persist_directory)
+        self.persist_directory = settings.RAG_PERSIST_DIRECTORY
+        self.client = chromadb.PersistentClient(path=self.persist_directory)
         
         # Use a more powerful model for embeddings
-        self.model_name = "all-mpnet-base-v2"
+        self.model_name = settings.MODEL_NAME
         self.embedding_fn = embedding_functions.SentenceTransformerEmbeddingFunction(model_name=self.model_name)
         
         self.collection = self.client.get_or_create_collection(
@@ -31,35 +35,7 @@ class RAGTool:
             embedding_function=self.embedding_fn
         )
         
-        self.urls = [
-            "https://build123d.readthedocs.io/en/latest/introduction.html",
-            "https://build123d.readthedocs.io/en/latest/key_concepts.html",
-            "https://build123d.readthedocs.io/en/latest/key_concepts_builder.html",
-            "https://build123d.readthedocs.io/en/latest/key_concepts_algebra.html",
-            "https://build123d.readthedocs.io/en/latest/location_arithmetic.html",
-            "https://build123d.readthedocs.io/en/latest/moving_objects.html",
-            "https://build123d.readthedocs.io/en/latest/introductory_examples.html",
-            "https://build123d.readthedocs.io/en/latest/examples_1.html",
-            "https://build123d.readthedocs.io/en/latest/tutorials.html",
-            "https://build123d.readthedocs.io/en/latest/tutorial_design.html",
-            "https://build123d.readthedocs.io/en/latest/tutorial_selectors.html",
-            "https://build123d.readthedocs.io/en/latest/tutorial_lego.html",
-            "https://build123d.readthedocs.io/en/latest/tutorial_joints.html",
-            "https://build123d.readthedocs.io/en/latest/tutorial_surface_modeling.html",
-            "https://build123d.readthedocs.io/en/latest/objects.html",
-            "https://build123d.readthedocs.io/en/latest/operations.html",
-            "https://build123d.readthedocs.io/en/latest/topology_selection.html",
-            "https://build123d.readthedocs.io/en/latest/builders.html",
-            "https://build123d.readthedocs.io/en/latest/build_line.html",
-            "https://build123d.readthedocs.io/en/latest/build_sketch.html",
-            "https://build123d.readthedocs.io/en/latest/build_part.html",
-            "https://build123d.readthedocs.io/en/latest/joints.html",
-            "https://build123d.readthedocs.io/en/latest/assemblies.html",
-            "https://build123d.readthedocs.io/en/latest/tips.html",
-            "https://build123d.readthedocs.io/en/latest/tttt.html",
-            "https://build123d.readthedocs.io/en/latest/tech_drawing_tutorial.html",
-            "https://build123d.readthedocs.io/en/latest/OpenSCAD.html",
-        ]
+        self.urls = settings.BUILD123D_DOCS_URLS
 
     async def _process_page_content(self, content_html: str) -> str | None:
         """Parses HTML content and extracts relevant text.
@@ -108,7 +84,7 @@ class RAGTool:
             The extracted text content of the page, or None if fetching failed.
         """
         try:
-            print(f"Scraping {url}...")
+            logger.info(f"Scraping {url}...")
             page = await context.new_page()
             # Use domcontentloaded to be faster and avoid timeouts on heavy pages
             await page.goto(url, wait_until="domcontentloaded", timeout=60000)
@@ -120,7 +96,7 @@ class RAGTool:
             return await self._process_page_content(content_html)
             
         except Exception as e:
-            print(f"Failed to scrape {url}: {e}")
+            logger.error(f"Failed to scrape {url}: {e}")
             return None
 
     def _store_chunks(self, chunks: list[str], ids: list[str], metadatas: list[dict]) -> None:
@@ -132,10 +108,10 @@ class RAGTool:
             metadatas: List of metadata dictionaries for the chunks.
         """
         if not chunks:
-            print("No content to ingest.")
+            logger.warning("No content to ingest.")
             return
 
-        print(f"Adding {len(chunks)} chunks to DB...")
+        logger.info(f"Adding {len(chunks)} chunks to DB...")
         # Add in batches to avoid hitting limits
         batch_size = 100
         for i in range(0, len(chunks), batch_size):
@@ -145,36 +121,36 @@ class RAGTool:
                 ids=ids[i:end],
                 metadatas=metadatas[i:end]
             )
-        print("Ingestion complete.")
+        logger.info("Ingestion complete.")
 
     async def ingest_docs(self) -> None:
         """Scrapes the configured URLs using Playwright and populates the vector DB."""
         if self.collection.count() > 0:
-            print("RAG DB already populated. Skipping ingestion.")
+            logger.info("RAG DB already populated. Skipping ingestion.")
             return
 
-        print("Ingesting documentation with Playwright...")
+        logger.info("Ingesting documentation with Playwright...")
         all_chunks = []
         all_ids = []
         all_metadatas = []
         
         doc_id_counter = 0
         
-        print("Starting Playwright...")
+        logger.info("Starting Playwright...")
         async with async_playwright() as p:
-            print("Launching browser...")
+            logger.info("Launching browser...")
             browser = await p.chromium.launch(
                 headless=True,
                 args=['--no-sandbox', '--disable-setuid-sandbox']
             )
-            print("Browser launched. Creating context...")
+            logger.info("Browser launched. Creating context...")
             context = await browser.new_context()
             
             for url in self.urls:
                 text = await self._fetch_url_content(context, url)
                 
                 if not text:
-                    print(f"Could not find main content for {url}")
+                    logger.warning(f"Could not find main content for {url}")
                     continue
                 
                 # Simple chunking
@@ -256,23 +232,23 @@ class RAGTool:
             A string containing the concatenated context from relevant documents.
         """
         try:
-            print(f"RAG Tool: Querying for '{query_text}'")
+            logger.info(f"RAG Tool: Querying for '{query_text}'")
             results = self.collection.query(
                 query_texts=[query_text],
                 n_results=n_results
             )
             
             if not results['documents'] or not results['documents'][0]:
-                print("RAG Tool: No results found.")
+                logger.info("RAG Tool: No results found.")
                 return "No relevant documentation found."
             
-            print(f"RAG Tool: Found {len(results['documents'][0])} results.")
+            logger.info(f"RAG Tool: Found {len(results['documents'][0])} results.")
             for i, (doc, meta) in enumerate(zip(results['documents'][0], results['metadatas'][0])):
-                print(f"RAG Result {i+1}: Source={meta.get('source', 'unknown')}, ChunkID={meta.get('chunk_id', 'unknown')}")
-                print(f"RAG Content Snippet: {doc[:200]}...")
+                logger.debug(f"RAG Result {i+1}: Source={meta.get('source', 'unknown')}, ChunkID={meta.get('chunk_id', 'unknown')}")
+                logger.debug(f"RAG Content Snippet: {doc[:200]}...")
 
             context = "\n\n".join(results['documents'][0])
             return context
         except Exception as e:
-            print(f"RAG Tool: Query failed with error: {e}")
+            logger.error(f"RAG Tool: Query failed with error: {e}")
             return f"RAG Query failed: {e}"

@@ -11,9 +11,12 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.memory import InMemoryMemoryService
 from google.genai.types import Content, Part
 
+import logging
 from sub_agents.designer.agent import get_designer_agent
 from sub_agents.coder.agent import get_coder_agent
 from tools.renderer import render_stl
+
+logger = logging.getLogger(__name__)
 
 class ControlFlowAgent:
     """Orchestrates the multi-agent workflow for 3D model generation.
@@ -48,14 +51,14 @@ class ControlFlowAgent:
             session_id (str): The unique identifier for the session.
             user_id (str): The unique identifier for the user.
         """
-        print(f"ControlFlow: Ensuring session {session_id} exists for user {user_id}")
+        logger.info(f"ControlFlow: Ensuring session {session_id} exists for user {user_id}")
         session = await self.session_service.get_session(app_name=self.app_name, user_id=user_id, session_id=session_id)
         if not session:
-            print(f"ControlFlow: Session not found. Creating new session...")
+            logger.info(f"ControlFlow: Session not found. Creating new session...")
             await self.session_service.create_session(app_name=self.app_name, user_id=user_id, session_id=session_id)
-            print("ControlFlow: Session created.")
+            logger.info("ControlFlow: Session created.")
         else:
-            print("ControlFlow: Session found.")
+            logger.info("ControlFlow: Session found.")
 
     async def _run_designer_step(self, prompt: str, user_id: str, session_id: str) -> str:
         """Runs the Designer Agent to generate a specification.
@@ -68,7 +71,7 @@ class ControlFlowAgent:
         Returns:
             str: The generated design specification as a string.
         """
-        print("--- Running Designer Agent ---")
+        logger.info("--- Running Designer Agent ---")
         designer_runner = Runner(
             agent=self.designer_agent,
             app_name=self.app_name,
@@ -82,7 +85,7 @@ class ControlFlowAgent:
         async for event in designer_runner.run_async(user_id=user_id, session_id=session_id, new_message=designer_input):
             if event.is_final_response() and event.content and event.content.parts:
                 designer_output = event.content.parts[0].text
-                print(f"ControlFlow: Designer Agent Output:\n{designer_output}")
+                logger.info(f"ControlFlow: Designer Agent Output:\n{designer_output}")
         
         return designer_output
 
@@ -110,11 +113,9 @@ class ControlFlowAgent:
         
         async for event in coder_runner.run_async(user_id=user_id, session_id=session_id, new_message=coder_input):
             if event.content:
-                 for part in event.content.parts:
-                     if part.function_response:
-                         response_content = part.function_response.response
-                         # Append the tool response to coder_output so regex can find the file path
-                         coder_output += f"\nTool Output: {response_content}"
+                 tool_output = self._parse_tool_output(event.content)
+                 if tool_output:
+                     coder_output += f"\nTool Output: {tool_output}"
             
             if event.is_final_response() and event.content and event.content.parts:
                 text_parts = [p.text for p in event.content.parts if p.text]
@@ -124,7 +125,14 @@ class ControlFlowAgent:
                     yield "\n".join(text_parts)
         
         result_container["output"] = coder_output
-        print(f"ControlFlow: Coder Output Raw: {coder_output}")
+        logger.info(f"ControlFlow: Coder Output Raw: {coder_output}")
+
+    def _parse_tool_output(self, content: Content) -> str | None:
+        """Parses tool output from the content."""
+        for part in content.parts:
+            if part.function_response:
+                return part.function_response.response
+        return None
 
     def _extract_or_generate_stl(self, coder_output: str) -> tuple[str | None, str | None]:
         """Extracts STL path from output or attempts fallback generation.
@@ -147,17 +155,17 @@ class ControlFlowAgent:
         # Fallback: Check if code was outputted in markdown
         code_match = re.search(r"```python(.*?)```", coder_output, re.DOTALL)
         if code_match:
-            print("ControlFlow: Found code block. Executing fallback generation...")
+            logger.info("ControlFlow: Found code block. Executing fallback generation...")
             code = code_match.group(1).strip()
             from tools.cad_tools import create_cad_model
             result = create_cad_model(code)
             if result["success"]:
-                print(f"ControlFlow: Fallback generation successful. Files: {result['files']}")
+                logger.info(f"ControlFlow: Fallback generation successful. Files: {result['files']}")
                 # We need to find the STL in the new result
                 # The result['files'] is a dict {'step': ..., 'stl': ...}
                 return result['files']['stl'], None
             else:
-                print(f"ControlFlow: Fallback generation failed: {result['error']}")
+                logger.error(f"ControlFlow: Fallback generation failed: {result['error']}")
                 return None, result['error']
         
         return None, "No code block or STL file found."
@@ -174,7 +182,7 @@ class ControlFlowAgent:
         Returns:
             str: The feedback text from the Designer Agent.
         """
-        print("--- Requesting Designer Feedback ---")
+        logger.info("--- Requesting Designer Feedback ---")
         designer_runner = Runner(
             agent=self.designer_agent,
             app_name=self.app_name,
@@ -196,7 +204,7 @@ class ControlFlowAgent:
         async for event in designer_runner.run_async(user_id=user_id, session_id=session_id, new_message=feedback_input):
             if event.is_final_response() and event.content and event.content.parts:
                 feedback_output = event.content.parts[0].text
-                print(f"ControlFlow: Designer Feedback:\n{feedback_output}")
+                logger.info(f"ControlFlow: Designer Feedback:\n{feedback_output}")
         
         return feedback_output
 
@@ -222,37 +230,37 @@ class ControlFlowAgent:
         stl_path, generation_error = self._extract_or_generate_stl(coder_output)
         
         if not stl_path:
-            print(f"ControlFlow: Generation failed. Error: {generation_error}")
-            print("ControlFlow: Sending error back to Coder...")
+            logger.error(f"ControlFlow: Generation failed. Error: {generation_error}")
+            logger.info("ControlFlow: Sending error back to Coder...")
             next_spec = f"Original Specification:\n{original_spec}\n\nPrevious attempt failed with error:\n{generation_error}\n\nPlease fix the code."
             yield (False, next_spec)
             return
             
-        print(f"ControlFlow: Found STL at {stl_path}")
+        logger.info(f"ControlFlow: Found STL at {stl_path}")
         
         # Render STL
         png_path = render_stl(stl_path)
         if not png_path:
-            print("ControlFlow: Failed to render STL.")
+            logger.error("ControlFlow: Failed to render STL.")
             yield "\nFailed to render STL.\n"
             yield (False, current_spec) # Retry same spec?
             return
             
-        print(f"ControlFlow: Rendered image at {png_path}")
+        logger.info(f"ControlFlow: Rendered image at {png_path}")
         yield f"Generated Image: {png_path}\n"
         
         # Ask Designer for Feedback
         feedback_output = await self._get_designer_feedback(png_path, original_spec, user_id, session_id)
                 
         if "APPROVED" in feedback_output:
-            print("ControlFlow: Design Approved.")
+            logger.info("ControlFlow: Design Approved.")
             friendly_msg = feedback_output.replace("APPROVED", "").strip()
             if not friendly_msg:
                     friendly_msg = "Here is your 3D model."
             yield f"{friendly_msg}\n"
             yield (True, "")
         else:
-            print("ControlFlow: Design Rejected. Retrying...")
+            logger.info("ControlFlow: Design Rejected. Retrying...")
             yield f"Designer Feedback: {feedback_output}\n"
             next_spec = f"Original Specification:\n{original_spec}\n\nFeedback on previous attempt:\n{feedback_output}\n\nPlease fix the code based on this feedback."
             yield (False, next_spec)
@@ -279,7 +287,7 @@ class ControlFlowAgent:
         current_spec = designer_output
         
         for loop in range(max_loops):
-            print(f"--- Running Coder Agent (Loop {loop+1}) ---")
+            logger.info(f"--- Running Coder Agent (Loop {loop+1}) ---")
             
             async for chunk in self._execute_loop_iteration(current_spec, designer_output, user_id, session_id):
                 if isinstance(chunk, tuple):

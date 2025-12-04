@@ -11,7 +11,10 @@ from a2a.models import (
 )
 from a2a.task_manager import TaskManager
 from runner import run_agent
-import os
+import logging
+from config import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 task_manager = TaskManager()
@@ -24,7 +27,7 @@ async def process_a2a_task(task_id: str, prompt: str, context_id: str) -> None:
         prompt (str): The input prompt from the user/agent.
         context_id (str): The context or session ID.
     """
-    print(f"Processing A2A task {task_id} with prompt: {prompt}")
+    logger.info(f"Processing A2A task {task_id} with prompt: {prompt}")
     task_manager.update_task_status(task_id, TaskState.WORKING)
     
     # Set the task ID in the context variable so tools can use it
@@ -44,12 +47,16 @@ async def process_a2a_task(task_id: str, prompt: str, context_id: str) -> None:
         stl_filename = None
         step_filename = None
         
-        for filename in os.listdir("outputs"):
-            if filename.startswith(task_id):
-                if filename.endswith(".stl"):
-                    stl_filename = filename
-                elif filename.endswith(".step"):
-                    step_filename = filename
+
+        
+        output_dir = settings.OUTPUT_DIR
+        if os.path.exists(output_dir):
+            for filename in os.listdir(output_dir):
+                if filename.startswith(task_id):
+                    if filename.endswith(".stl"):
+                        stl_filename = filename
+                    elif filename.endswith(".step"):
+                        step_filename = filename
 
         parts = [Part(text=final_response)]
         
@@ -73,7 +80,8 @@ async def process_a2a_task(task_id: str, prompt: str, context_id: str) -> None:
         )
         
         task_manager.update_task_status(task_id, TaskState.COMPLETED, response_message)
-        print(f"A2A task {task_id} completed successfully")
+
+        logger.info(f"A2A task {task_id} completed successfully")
 
     except Exception as e:
         error_msg = f"Internal error during generation: {str(e)}"
@@ -82,7 +90,7 @@ async def process_a2a_task(task_id: str, prompt: str, context_id: str) -> None:
             parts=[Part(text=error_msg)]
         )
         task_manager.update_task_status(task_id, TaskState.FAILED, response_message)
-        print(f"A2A task {task_id} exception: {e}")
+        logger.error(f"A2A task {task_id} exception: {e}")
 
     finally:
         # Reset the context variable
