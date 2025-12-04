@@ -100,6 +100,8 @@ The application includes a web-based user interface for interacting with the age
 
 The UI allows you to enter natural language prompts, view the conversation history, and download the generated 3D models.
 
+![Forma AI UI](assets/ui_screenshot.png)
+
 
 ### API Usage
 
