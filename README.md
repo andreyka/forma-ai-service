@@ -101,3 +101,12 @@ A reference client implementation is provided in the `example/` directory.
 
 The script will submit the prompt, poll for completion, and print the download URLs for the generated files.
 
+## Licenses
+
+This project uses the following open-source libraries:
+
+*   **build123d**: [Apache License 2.0](licenses/BUILD123D_LICENSE)
+*   **PyVista**: [MIT License](licenses/PYVISTA_LICENSE)
+*   **Google Generative AI**: [Apache License 2.0](licenses/GOOGLE_GENAI_LICENSE)
+
+
