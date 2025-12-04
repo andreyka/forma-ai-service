@@ -61,6 +61,7 @@ graph TD
 ## Limitations
 
 *   **Stateless Execution**: Each task is fully independent. The agent does not retain context from previous requests. You cannot ask the agent to "modify the previous model" or "make the hole bigger"; you must provide the full specification for the modified model in a new request.
+*   **Speed**: The execution of the model generation loop involves multiple agents and potentially multiple retries, which depends on the request complexity, references in documentation (i.e. rag results), search results and so on. This process takes quite some time. 
 
 ## Getting Started
 
