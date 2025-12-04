@@ -61,7 +61,12 @@ graph TD
 ## Limitations
 
 *   **Stateless Execution**: Each task is fully independent. The agent does not retain context from previous requests. You cannot ask the agent to "modify the previous model" or "make the hole bigger"; you must provide the full specification for the modified model in a new request.
+
 *   **Speed**: The execution of the model generation loop involves multiple agents and potentially multiple retries, which depends on the request complexity, references in documentation (i.e. rag results), search results and so on. This process takes quite some time. 
+
+*  **AI Perfomance**: AI by design generates probabilistic results and they can vary in terms of quality. Current implementation uses Gemini 3.0 pro that is a very powerful model, but yet is not specialized in CAD geometry generation. LiteLLM allows to switch between different models, maybe in the futre the model will be replaced with a more specialized one.
+
+*   **Security**: The system is designed to execute code writtend by the model. The current implementation is not meant to be a production ready service with external users. It is more like a proof of concept for personal use. Authentication, tenancy-isolation and propper code execution isolation are not implemented.   
 
 ## Getting Started
 
