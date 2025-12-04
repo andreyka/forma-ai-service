@@ -161,7 +161,7 @@ async def a2a_get_agent_card(request: Request) -> AgentCard:
             "name": "FormaAI 3D Agent",
             "description": "Generates 3D models (STL/STEP) from natural language descriptions using build123d and Gemini 3 Pro.",
             "author": "FormaAI Team",
-            "license": "MIT"
+            "license": "Apache-2.0"
         },
         capabilities={
             "input_types": ["text/plain"],

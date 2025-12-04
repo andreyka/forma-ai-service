@@ -2,6 +2,8 @@
 
 ![Forma AI Logo](assets/logo.png)
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 Forma AI is an AI agent which generates parametric 3D CAD models from natural language descriptions. 
 
 ### Architecture
@@ -109,3 +111,4 @@ This project uses the following open-source libraries:
 *   **PyVista**: [MIT License](licenses/PYVISTA_LICENSE)
 *   **Google Generative AI**: [Apache License 2.0](licenses/GOOGLE_GENAI_LICENSE)
 *   **Playwright**: [Apache License 2.0](licenses/PLAYWRIGHT_LICENSE)
+*   **ChromaDB**: [Apache License 2.0](licenses/CHROMADB_LICENSE)
