@@ -58,6 +58,4 @@ os.makedirs("outputs", exist_ok=True)
 app.mount("/download", StaticFiles(directory="outputs"), name="outputs")
 
 # --- A2A Protocol Implementation ---
-from a2a.api import router as a2a_router
-
 app.include_router(a2a_router)

@@ -14,7 +14,10 @@ from google.genai.types import Content, Part
 import logging
 from sub_agents.designer.agent import get_designer_agent
 from sub_agents.coder.agent import get_coder_agent
+from sub_agents.designer.agent import get_designer_agent
+from sub_agents.coder.agent import get_coder_agent
 from tools.renderer import render_stl
+from tools.cad_tools import create_cad_model
 
 logger = logging.getLogger(__name__)
 
@@ -151,13 +154,17 @@ class ControlFlowAgent:
         if stl_match:
             return stl_match.group(0), None
             
-        print("ControlFlow: No STL file found in output. Checking for code block...")
+        if stl_match:
+            return stl_match.group(0), None
+            
+        logger.info("ControlFlow: No STL file found in output. Checking for code block...")
         # Fallback: Check if code was outputted in markdown
         code_match = re.search(r"```python(.*?)```", coder_output, re.DOTALL)
         if code_match:
             logger.info("ControlFlow: Found code block. Executing fallback generation...")
             code = code_match.group(1).strip()
-            from tools.cad_tools import create_cad_model
+            logger.info("ControlFlow: Found code block. Executing fallback generation...")
+            code = code_match.group(1).strip()
             result = create_cad_model(code)
             if result["success"]:
                 logger.info(f"ControlFlow: Fallback generation successful. Files: {result['files']}")
@@ -208,6 +215,35 @@ class ControlFlowAgent:
         
         return feedback_output
 
+
+    async def _verify_model(self, stl_path: str, original_spec: str, user_id: str, session_id: str) -> tuple[bool, str, str | None]:
+        """Renders the model and gets feedback from the Designer.
+
+        Args:
+            stl_path: Path to the STL file.
+            original_spec: The original specification.
+            user_id: User ID.
+            session_id: Session ID.
+
+        Returns:
+            tuple: (is_approved, feedback_text, png_path)
+        """
+        logger.info(f"ControlFlow: Found STL at {stl_path}")
+        
+        # Render STL
+        png_path = render_stl(stl_path)
+        if not png_path:
+            logger.error("ControlFlow: Failed to render STL.")
+            return False, "Failed to render STL.", None
+            
+        logger.info(f"ControlFlow: Rendered image at {png_path}")
+        
+        # Ask Designer for Feedback
+        feedback_output = await self._get_designer_feedback(png_path, original_spec, user_id, session_id)
+        
+        is_approved = "APPROVED" in feedback_output
+        return is_approved, feedback_output, png_path
+
     async def _execute_loop_iteration(self, current_spec: str, original_spec: str, user_id: str, session_id: str) -> AsyncGenerator[str | tuple[bool, str], None]:
         """Executes one iteration of the feedback loop.
 
@@ -220,13 +256,16 @@ class ControlFlowAgent:
         Yields:
             Union[str, tuple[bool, str]]: Chunks of text output, and finally a tuple (is_approved, next_spec).
         """
+        # 1. Generate Model
+        # Note: We can't easily stream the coder output here if we refactor to _generate_model 
+        # unless we pass the yield callback or keep the generator logic inline.
+        # To preserve streaming, we'll keep the generator call here but use the helper logic for the rest.
+        
         coder_result = {}
         async for chunk in self._run_coder_step(current_spec, user_id, session_id, coder_result):
             yield chunk
             
         coder_output = coder_result.get("output", "")
-        
-        # Extract STL or Fallback
         stl_path, generation_error = self._extract_or_generate_stl(coder_output)
         
         if not stl_path:
@@ -235,24 +274,18 @@ class ControlFlowAgent:
             next_spec = f"Original Specification:\n{original_spec}\n\nPrevious attempt failed with error:\n{generation_error}\n\nPlease fix the code."
             yield (False, next_spec)
             return
-            
-        logger.info(f"ControlFlow: Found STL at {stl_path}")
+
+        # 2. Verify Model
+        is_approved, feedback_output, png_path = await self._verify_model(stl_path, original_spec, user_id, session_id)
         
-        # Render STL
-        png_path = render_stl(stl_path)
-        if not png_path:
-            logger.error("ControlFlow: Failed to render STL.")
+        if png_path:
+            yield f"Generated Image: {png_path}\n"
+        else:
             yield "\nFailed to render STL.\n"
-            yield (False, current_spec) # Retry same spec?
+            yield (False, current_spec)
             return
-            
-        logger.info(f"ControlFlow: Rendered image at {png_path}")
-        yield f"Generated Image: {png_path}\n"
-        
-        # Ask Designer for Feedback
-        feedback_output = await self._get_designer_feedback(png_path, original_spec, user_id, session_id)
-                
-        if "APPROVED" in feedback_output:
+
+        if is_approved:
             logger.info("ControlFlow: Design Approved.")
             friendly_msg = feedback_output.replace("APPROVED", "").strip()
             if not friendly_msg:

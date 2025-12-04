@@ -7,24 +7,22 @@ and render the resulting STL files to images.
 import os
 import uuid
 import logging
+import contextvars
+import multiprocessing
+import traceback
 import pyvista as pv
 from build123d import *
+from config import settings
+from tools.security import validate_code
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-import contextvars
-
 # Context variable to track the current task ID
 task_id_var = contextvars.ContextVar("task_id", default=None)
 
-from config import settings
-
 OUTPUT_DIR = settings.OUTPUT_DIR
 os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-import multiprocessing
-import traceback
 
 def _execute_and_export(script_code: str, output_dir: str, base_name: str) -> dict:
     """Execute code and export files in a separate process.
@@ -38,17 +36,14 @@ def _execute_and_export(script_code: str, output_dir: str, base_name: str) -> di
         dict: Result dictionary with success status and file paths.
     """
     try:
-        # Re-import build123d in the subprocess to ensure clean state
-        # Re-import build123d in the subprocess to ensure clean state
-        from build123d import (
-            BuildPart, BuildSketch, BuildLine, Box, Cylinder, Sphere, Cone, Torus, Wedge, Text,
-            Plane, Locations, Align, Mode, Axis, Vector, Color, export_step, export_stl,
-            Rectangle, Circle, Ellipse, Triangle, Polygon, RegularPolygon, Trapezoid,
-            Line, Polyline, Spline, CenterArc, ThreePointArc, TangentArc, JernArc,
-            make_face, add, fillet, chamfer, offset, mirror, extrude, revolve, sweep, loft
-        )
+        # Validate code before execution
+        validate_code(script_code)
+
+        # Dynamically populate the execution scope with build123d symbols
+        # This avoids verbose explicit imports while ensuring a clean state
+        import build123d
+        local_scope = {name: getattr(build123d, name) for name in dir(build123d) if not name.startswith("_")}
         
-        local_scope = {}
         # Execute the script
         exec(script_code, {}, local_scope)
         
@@ -127,8 +122,6 @@ def _render_worker(stl_path: str, output_dir: str, base_name: str) -> dict:
     Returns:
         dict: Result dictionary with success status and image paths.
     """
-    import pyvista as pv
-    
     try:
         # Configure PyVista for headless rendering with EGL/OSMesa
         pv.OFF_SCREEN = True

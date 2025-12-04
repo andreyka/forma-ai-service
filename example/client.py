@@ -10,7 +10,7 @@ import sys
 
 BASE_URL = "http://localhost:8001"
 
-def generate_model(prompt: str) -> None:
+def generate_3d_model(prompt: str) -> None:
     """Send a generation request and poll for completion.
 
     Args:
@@ -72,4 +72,4 @@ if __name__ == "__main__":
     else:
         prompt = "Design a 10x10x10 cm cube with a 5mm hole in the center."
         
-    generate_model(prompt)
+    generate_3d_model(prompt)
